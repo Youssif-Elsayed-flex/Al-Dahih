@@ -1,0 +1,7 @@
+[31merror when starting dev server:
+Error: ENOTDIR: not a directory, scandir 'D:\important projects\eldahih webste\client\public'
+    at async Object.readdir (node:internal/fs/promises:955:18)
+    at async recursiveReaddir (file:///D:/important%20projects/eldahih%20webste/client/node_modules/vite/dist/node/chunks/config.js:2188:13)
+    at async initPublicFiles (file:///D:/important%20projects/eldahih%20webste/client/node_modules/vite/dist/node/chunks/config.js:8068:15)
+    at async _createServer (file:///D:/important%20projects/eldahih%20webste/client/node_modules/vite/dist/node/chunks/config.js:25378:22)
+    at async CAC.<anonymous> (file:///D:/important%20projects/eldahih%20webste/client/node_modules/vite/dist/node/cli.js:572:18)[39m
