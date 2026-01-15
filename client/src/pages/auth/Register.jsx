@@ -178,7 +178,7 @@ const Register = () => {
                                     />
                                 </div>
 
-                                {roleParam !== 'teacher' && (
+                                {roleParam === 'student' && (
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">رقم ولي الأمر</label>
                                         <Input

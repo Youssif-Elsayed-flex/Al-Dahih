@@ -48,19 +48,17 @@ export const AuthProvider = ({ children }) => {
             let endpoint = '/auth/register-student';
 
             if (userData.role === 'teacher') {
-                endpoint = '/auth/register-employee'; // Requires backend update
+                endpoint = '/auth/register-employee';
             } else if (userData.role === 'parent') {
-                endpoint = '/auth/register-parent'; // Requires backend update
+                endpoint = '/auth/register-parent';
             }
 
             const { data } = await axios.post(endpoint, userData);
 
-            // Teachers might require approval, so maybe don't login immediately if pending
             if (userData.role === 'teacher' && data.data.status === 'pending') {
-                return { success: true, message: 'تم التسجيل بنجاح، بانتظار موافقة الإدارة' };
+                return { success: true, message: 'تم التسجيل بنجاح، بانتظار موافقة الإدارة', pending: true };
             }
 
-            // Normal login flow
             setUser(data.data.user || data.data.student);
             return { success: true, user: data.data.user || data.data.student };
         } catch (error) {
@@ -75,7 +73,6 @@ export const AuthProvider = ({ children }) => {
         try {
             await axios.post('/auth/logout');
             setUser(null);
-            // Optionally redirect here or let the component handle it
         } catch (error) {
             console.error('Logout failed', error);
         }
@@ -87,13 +84,14 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        checkAuth, // exposed in case we need to re-verify manaully
+        checkAuth,
         isAuthenticated: !!user,
-        isStudent: user?.userType === 'student' || (!user?.role && !!user),
-        isEmployee: !!user?.role,
-        isAdmin: user?.role === 'admin',
-        isTeacher: user?.role === 'teacher',
-        isAccountant: user?.role === 'accountant',
+        isStudent: user?.userType === 'student',
+        isParent: user?.userType === 'parent',
+        isEmployee: user?.userType === 'employee',
+        isAdmin: user?.userType === 'employee' && user?.role === 'admin',
+        isTeacher: user?.userType === 'employee' && user?.role === 'teacher',
+        isAccountant: user?.userType === 'employee' && user?.role === 'accountant',
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

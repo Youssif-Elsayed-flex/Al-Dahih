@@ -1,4 +1,4 @@
-import pool from '../config/db.mysql.js';
+import pool from '../config/db.pg.js';
 
 /**
  * @desc    إنشاء حجز جديد
@@ -11,7 +11,7 @@ export const createBooking = async (req, res) => {
 
     try {
         // Check if course exists and is active
-        const [courses] = await pool.execute('SELECT id, is_active FROM courses WHERE id = ?', [courseId]);
+        const { rows: courses } = await pool.query('SELECT id, is_active FROM courses WHERE id = $1', [courseId]);
         if (courses.length === 0) {
             return res.status(404).json({ success: false, message: 'الدورة غير موجودة' });
         }
@@ -20,23 +20,23 @@ export const createBooking = async (req, res) => {
         }
 
         // Check for existing booking
-        const [existing] = await pool.execute(
-            'SELECT id FROM bookings WHERE student_id = ? AND course_id = ? AND month_year = ?',
+        const { rows: existing } = await pool.query(
+            'SELECT id FROM bookings WHERE student_id = $1 AND course_id = $2 AND month_year = $3',
             [studentId, courseId, monthYear]
         );
         if (existing.length > 0) {
             return res.status(400).json({ success: false, message: 'لديك حجز مسبق لهذه الدورة في هذا الشهر' });
         }
 
-        const [result] = await pool.execute(
-            'INSERT INTO bookings (student_id, course_id, month_year, status) VALUES (?, ?, ?, "pending")',
-            [studentId, courseId, monthYear]
+        const { rows } = await pool.query(
+            'INSERT INTO bookings (student_id, course_id, month_year, status) VALUES ($1, $2, $3, $4) RETURNING id',
+            [studentId, courseId, monthYear, 'pending']
         );
 
         res.status(201).json({
             success: true,
             message: 'تم استلام طلب الحجز بنجاح',
-            data: { id: result.insertId, status: 'pending' }
+            data: { id: rows[0].id, status: 'pending' }
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'خطأ في الخادم', error: error.message });
@@ -50,12 +50,12 @@ export const createBooking = async (req, res) => {
  */
 export const getMyBookings = async (req, res) => {
     try {
-        const [bookings] = await pool.execute(
+        const { rows: bookings } = await pool.query(
             `SELECT b.id, b.student_id, b.course_id, b.month_year, b.status, b.created_at,
                     c.title, c.description, c.price_per_month, c.cover_image
              FROM bookings b
              JOIN courses c ON b.course_id = c.id
-             WHERE b.student_id = ?
+             WHERE b.student_id = $1
              ORDER BY b.created_at DESC`,
             [req.user.id]
         );
@@ -87,7 +87,7 @@ export const getMyBookings = async (req, res) => {
  */
 export const getAllBookings = async (req, res) => {
     try {
-        const [bookings] = await pool.execute(
+        const { rows: bookings } = await pool.query(
             `SELECT b.id, b.student_id, b.course_id, b.month_year, b.status, b.created_at,
                     s.name as student_name, s.email as student_email,
                     c.title as course_title
@@ -120,7 +120,7 @@ export const getAllBookings = async (req, res) => {
 export const updateBookingStatus = async (req, res) => {
     const { status } = req.body;
     try {
-        await pool.execute('UPDATE bookings SET status = ? WHERE id = ?', [status, req.params.id]);
+        await pool.query('UPDATE bookings SET status = $1 WHERE id = $2', [status, req.params.id]);
         res.status(200).json({ success: true, message: 'تم تحديث حالة الحجز بنجاح' });
     } catch (error) {
         res.status(500).json({ success: false, message: 'خطأ في الخادم', error: error.message });

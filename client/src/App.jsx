@@ -1,11 +1,10 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Pages
 import Home from './pages/Home';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -22,21 +21,21 @@ import ManageEmployees from './pages/dashboard/ManageEmployees';
 import ManageCourses from './pages/dashboard/ManageCourses';
 import ManageBookings from './pages/dashboard/ManageBookings';
 import ManageStudents from './pages/dashboard/ManageStudents';
-
 import Reports from './pages/dashboard/Reports';
 import TeacherDashboard from './pages/dashboard/TeacherDashboard';
 import AccountantDashboard from './pages/dashboard/AccountantDashboard';
+import ParentDashboard from './pages/parent/ParentDashboard';
+import LinkStudent from './pages/parent/LinkStudent';
 
 import MainLayout from './components/layout/MainLayout';
 import DashboardLayout from './components/layout/DashboardLayout';
 
-// Create Query Client
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
             refetchOnWindowFocus: false,
             retry: 1,
-            staleTime: 5 * 60 * 1000, // 5 minutes
+            staleTime: 5 * 60 * 1000,
         },
     },
 });
@@ -47,7 +46,6 @@ function App() {
             <AuthProvider>
                 <Router>
                     <Routes>
-                        {/* Public Pages with MainLayout (Navbar/Footer) */}
                         <Route element={<MainLayout />}>
                             <Route path="/" element={<Home />} />
                             <Route path="/login" element={<Login />} />
@@ -55,7 +53,6 @@ function App() {
                             <Route path="/courses" element={<Courses />} />
                             <Route path="/courses/:id" element={<CourseDetails />} />
 
-                            {/* Protected Student Routes in MainLayout */}
                             <Route
                                 path="/booking/:courseId"
                                 element={
@@ -104,9 +101,25 @@ function App() {
                                     </ProtectedRoute>
                                 }
                             />
+
+                            <Route
+                                path="/parent"
+                                element={
+                                    <ProtectedRoute requireParent>
+                                        <ParentDashboard />
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/parent/link-student"
+                                element={
+                                    <ProtectedRoute requireParent>
+                                        <LinkStudent />
+                                    </ProtectedRoute>
+                                }
+                            />
                         </Route>
 
-                        {/* Employee Dashboard Routes with DashboardLayout (Sidebar) */}
                         <Route
                             path="/dashboard"
                             element={
@@ -125,7 +138,6 @@ function App() {
                             <Route path="accountant" element={<AccountantDashboard />} />
                         </Route>
 
-                        {/* 404 - No Layout or maybe MainLayout */}
                         <Route
                             path="*"
                             element={

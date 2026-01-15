@@ -1,8 +1,5 @@
 import { body, validationResult } from 'express-validator';
 
-/**
- * قواعد التحقق من تسجيل الطالب
- */
 export const registerStudentValidation = [
     body('name')
         .trim()
@@ -27,14 +24,80 @@ export const registerStudentValidation = [
 
     body('phone')
         .optional()
-        .trim()
-        .isMobilePhone('ar-EG')
-        .withMessage('رقم الهاتف غير صحيح'),
+        .trim(),
+
+    body('parentPhone')
+        .optional()
+        .trim(),
+
+    body('educationLevel')
+        .optional()
+        .trim(),
 ];
 
-/**
- * قواعد التحقق من تسجيل الدخول
- */
+export const registerEmployeeValidation = [
+    body('name')
+        .trim()
+        .notEmpty()
+        .withMessage('الاسم مطلوب')
+        .isLength({ min: 2 })
+        .withMessage('الاسم يجب أن يكون حرفين على الأقل'),
+
+    body('email')
+        .trim()
+        .notEmpty()
+        .withMessage('البريد الإلكتروني مطلوب')
+        .isEmail()
+        .withMessage('صيغة البريد الإلكتروني غير صحيحة')
+        .normalizeEmail(),
+
+    body('password')
+        .notEmpty()
+        .withMessage('كلمة المرور مطلوبة')
+        .isLength({ min: 6 })
+        .withMessage('كلمة المرور يجب أن تكون 6 أحرف على الأقل'),
+
+    body('phone')
+        .optional()
+        .trim(),
+
+    body('subject')
+        .optional()
+        .trim(),
+
+    body('role')
+        .optional()
+        .isIn(['teacher', 'accountant'])
+        .withMessage('الدور يجب أن يكون مدرس أو محاسب'),
+];
+
+export const registerParentValidation = [
+    body('name')
+        .trim()
+        .notEmpty()
+        .withMessage('الاسم مطلوب')
+        .isLength({ min: 2 })
+        .withMessage('الاسم يجب أن يكون حرفين على الأقل'),
+
+    body('email')
+        .trim()
+        .notEmpty()
+        .withMessage('البريد الإلكتروني مطلوب')
+        .isEmail()
+        .withMessage('صيغة البريد الإلكتروني غير صحيحة')
+        .normalizeEmail(),
+
+    body('password')
+        .notEmpty()
+        .withMessage('كلمة المرور مطلوبة')
+        .isLength({ min: 6 })
+        .withMessage('كلمة المرور يجب أن تكون 6 أحرف على الأقل'),
+
+    body('phone')
+        .optional()
+        .trim(),
+];
+
 export const loginValidation = [
     body('email')
         .trim()
@@ -49,9 +112,6 @@ export const loginValidation = [
         .withMessage('كلمة المرور مطلوبة'),
 ];
 
-/**
- * قواعد التحقق من إنشاء دورة
- */
 export const createCourseValidation = [
     body('title')
         .trim()
@@ -74,9 +134,6 @@ export const createCourseValidation = [
         .withMessage('عدد الطلاب يجب أن يكون رقمًا صحيحًا أكبر من 0'),
 ];
 
-/**
- * قواعد التحقق من الحجز
- */
 export const createBookingValidation = [
     body('courseId')
         .notEmpty()
@@ -91,9 +148,6 @@ export const createBookingValidation = [
         .withMessage('صيغة الشهر والسنة يجب أن تكون YYYY-MM'),
 ];
 
-/**
- * Middleware للتحقق من النتائج
- */
 export const validate = (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

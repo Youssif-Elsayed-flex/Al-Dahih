@@ -12,31 +12,26 @@ import {
 
 import {
     registerStudentValidation,
+    registerEmployeeValidation,
+    registerParentValidation,
     loginValidation,
     validate,
 } from '../middleware/validation.middleware.js';
 
 const router = express.Router();
 
-// تسجيل طالب جديد
 router.post('/register-student', registerStudentValidation, validate, registerStudent);
 
-// تسجيل موظف (مدرس)
-router.post('/register-employee', validate, registerEmployee);
+router.post('/register-employee', registerEmployeeValidation, validate, registerEmployee);
 
-// تسجيل ولي أمر
-router.post('/register-parent', validate, registerParent);
+router.post('/register-parent', registerParentValidation, validate, registerParent);
 
-// تسجيل الدخول
 router.post('/login', loginValidation, validate, login);
 
-// تسجيل الخروج
 router.post('/logout', logout);
 
-// التحقق من الجلسة
 router.get('/me', protect, getMe);
 
-// استعادة كلمة المرور
 router.post('/reset-password', resetPassword);
 
 export default router;

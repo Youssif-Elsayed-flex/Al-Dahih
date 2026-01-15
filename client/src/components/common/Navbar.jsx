@@ -7,7 +7,7 @@ import logo from '../../assets/logo.jpg';
 import Swal from 'sweetalert2';
 
 const Navbar = () => {
-    const { user, isAuthenticated, logout, isStudent, isEmployee } = useAuth();
+    const { user, isAuthenticated, logout, isStudent, isEmployee, isParent } = useAuth();
     const navigate = useNavigate();
 
     const handleLogout = () => {
@@ -52,6 +52,13 @@ const Navbar = () => {
         });
     };
 
+    const getDashboardLink = () => {
+        if (isEmployee) return '/dashboard';
+        if (isParent) return '/parent';
+        if (isStudent) return '/profile';
+        return '/';
+    };
+
     return (
         <motion.nav
             className="sticky top-0 z-50 bg-gradient-primary shadow-lg backdrop-blur-md"
@@ -61,7 +68,6 @@ const Navbar = () => {
         >
             <Container>
                 <div className="flex items-center justify-between h-20">
-                    {/* Logo */}
                     <Link to="/" className="flex items-center gap-3 group">
                         <div className="w-12 h-12 rounded-full bg-primary-500 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
                             <img className='w-full h-full object-contain rounded-full border-2 border-primary-500' src={logo} alt="logo of eldahih" />
@@ -72,7 +78,6 @@ const Navbar = () => {
                         </div>
                     </Link>
 
-                    {/* Navigation Links */}
                     <div className="hidden md:flex items-center gap-6">
                         <Link to="/" className="text-white hover:text-primary-300 transition-colors duration-300 font-medium">الرئيسية</Link>
                         <Link to="/courses" className="text-white hover:text-primary-300 transition-colors duration-300 font-medium">الدورات</Link>
@@ -84,16 +89,19 @@ const Navbar = () => {
                             </>
                         )}
 
+                        {isAuthenticated && isParent && (
+                            <Link to="/parent" className="text-white hover:text-primary-300 transition-colors duration-300 font-medium">متابعة أبنائي</Link>
+                        )}
+
                         {isAuthenticated && isEmployee && (
                             <Link to="/dashboard" className="text-white hover:text-primary-300 transition-colors duration-300 font-medium">لوحة التحكم</Link>
                         )}
                     </div>
 
-                    {/* Auth Buttons */}
                     <div className="flex items-center gap-3">
                         {isAuthenticated ? (
                             <>
-                                <Link to="/profile">
+                                <Link to={getDashboardLink()}>
                                     <motion.div className="flex items-center gap-2 text-white hover:text-primary-300 transition-colors duration-300" whileHover={{ scale: 1.05 }}>
                                         <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center">
                                             <span className="text-sm font-bold">{user?.name?.[0] || 'م'}</span>

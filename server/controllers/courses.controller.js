@@ -1,4 +1,21 @@
-import pool from '../config/db.mysql.js';
+import pool from '../config/db.pg.js';
+
+// Helper to format course object
+const formatCourse = (course) => ({
+    _id: course.id,
+    title: course.title,
+    description: course.description,
+    pricePerMonth: course.price_per_month, // SQL: price_per_month
+    daysPerWeek: course.days_per_week,     // SQL: days_per_week
+    startAt: course.start_at,
+    endAt: course.end_at,
+    maxStudents: course.max_students,
+    teacherId: course.teacher_id,
+    coverImage: course.cover_image,
+    isActive: course.is_active,
+    createdAt: course.created_at,
+    updatedAt: course.updated_at
+});
 
 /**
  * @desc    الحصول على جميع الدورات
@@ -8,20 +25,20 @@ import pool from '../config/db.mysql.js';
 export const getCourses = async (req, res) => {
     try {
         const { isActive } = req.query;
-        let query = 'SELECT * FROM courses';
+        let queryText = 'SELECT * FROM courses';
         const params = [];
 
         if (isActive !== undefined) {
-            query += ' WHERE is_active = ?';
-            params.push(isActive === 'true' ? 1 : 0);
+            queryText += ' WHERE is_active = $1';
+            params.push(isActive === 'true');
         } else {
-            query += ' WHERE is_active = 1';
+            queryText += ' WHERE is_active = true';
         }
 
-        query += ' ORDER BY created_at DESC';
+        queryText += ' ORDER BY created_at DESC';
 
-        const [courses] = await pool.execute(query, params);
-        res.status(200).json({ success: true, count: courses.length, data: courses });
+        const { rows: courses } = await pool.query(queryText, params);
+        res.status(200).json({ success: true, count: courses.length, data: courses.map(formatCourse) });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -34,11 +51,11 @@ export const getCourses = async (req, res) => {
  */
 export const getCourse = async (req, res) => {
     try {
-        const [courses] = await pool.execute('SELECT * FROM courses WHERE id = ?', [req.params.id]);
+        const { rows: courses } = await pool.query('SELECT * FROM courses WHERE id = $1', [req.params.id]);
         if (courses.length === 0) {
             return res.status(404).json({ success: false, message: 'الدورة غير موجودة' });
         }
-        res.status(200).json({ success: true, data: courses[0] });
+        res.status(200).json({ success: true, data: formatCourse(courses[0]) });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -52,11 +69,11 @@ export const getCourse = async (req, res) => {
 export const createCourse = async (req, res) => {
     const { title, description, price_per_month, days_per_week, start_at, end_at, max_students, teacher_id } = req.body;
     try {
-        const [result] = await pool.execute(
-            'INSERT INTO courses (title, description, price_per_month, days_per_week, start_at, end_at, max_students, teacher_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [title, description, price_per_month, days_per_week, start_at, end_at, max_students, teacher_id]
+        const { rows } = await pool.query(
+            'INSERT INTO courses (title, description, price_per_month, days_per_week, start_at, end_at, max_students, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+            [title, description, price_per_month, JSON.stringify(days_per_week), start_at, end_at, max_students, teacher_id]
         );
-        res.status(201).json({ success: true, message: 'تم إنشاء الدورة بنجاح', data: { id: result.insertId } });
+        res.status(201).json({ success: true, message: 'تم إنشاء الدورة بنجاح', data: formatCourse(rows[0]) });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -70,9 +87,9 @@ export const createCourse = async (req, res) => {
 export const updateCourse = async (req, res) => {
     const { title, description, price_per_month, days_per_week, start_at, end_at, max_students, teacher_id, is_active } = req.body;
     try {
-        await pool.execute(
-            'UPDATE courses SET title = ?, description = ?, price_per_month = ?, days_per_week = ?, start_at = ?, end_at = ?, max_students = ?, teacher_id = ?, is_active = ? WHERE id = ?',
-            [title, description, price_per_month, days_per_week, start_at, end_at, max_students, teacher_id, is_active, req.params.id]
+        await pool.query(
+            'UPDATE courses SET title = $1, description = $2, price_per_month = $3, days_per_week = $4, start_at = $5, end_at = $6, max_students = $7, teacher_id = $8, is_active = $9 WHERE id = $10',
+            [title, description, price_per_month, JSON.stringify(days_per_week), start_at, end_at, max_students, teacher_id, is_active, req.params.id]
         );
         res.status(200).json({ success: true, message: 'تم تحديث الدورة بنجاح' });
     } catch (error) {
@@ -87,7 +104,7 @@ export const updateCourse = async (req, res) => {
  */
 export const deleteCourse = async (req, res) => {
     try {
-        await pool.execute('DELETE FROM courses WHERE id = ?', [req.params.id]);
+        await pool.query('DELETE FROM courses WHERE id = $1', [req.params.id]);
         res.status(200).json({ success: true, message: 'تم حذف الدورة بنجاح' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

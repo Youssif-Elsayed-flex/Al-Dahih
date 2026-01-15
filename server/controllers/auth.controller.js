@@ -1,142 +1,153 @@
-import pool from '../config/db.mysql.js';
+import pool from '../config/db.pg.js';
 import bcrypt from 'bcryptjs';
 import { generateToken } from '../utils/generateToken.js';
 
-/**
- * @desc    تسجيل موظف جديد (مدرس - عام)
- * @route   POST /api/auth/register-employee
- * @access  Public
- */
+const emailExists = async (email) => {
+    const tables = ['students', 'employees', 'parents'];
+    for (const table of tables) {
+        const { rows } = await pool.query(`SELECT id FROM ${table} WHERE email = $1`, [email]);
+        if (rows.length > 0) return true;
+    }
+    return false;
+};
+
 export const registerEmployee = async (req, res) => {
     const { name, email, password, phone, subject, role = 'teacher' } = req.body;
 
     try {
-        const [existing] = await pool.execute('SELECT id FROM employees WHERE email = ?', [email]);
-        if (existing.length > 0) {
+        if (await emailExists(email)) {
             return res.status(400).json({ success: false, message: 'البريد الإلكتروني مسجّل بالفعل' });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        await pool.execute(
-            'INSERT INTO employees (name, email, password, phone, role) VALUES (?, ?, ?, ?, ?)',
-            [name, email, hashedPassword, phone, role]
+
+        const { rows } = await pool.query(
+            'INSERT INTO employees (name, email, password, role, salary, permissions, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+            [name, email, hashedPassword, role, 0, null, false]
         );
 
         res.status(201).json({
             success: true,
             message: 'تم التسجيل بنجاح، بانتظار موافقة الإدارة',
-            data: { status: 'pending' }
+            data: { id: rows[0].id, status: 'pending' }
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('Register Employee Error:', error);
+        res.status(500).json({ success: false, message: 'خطأ في الخادم' });
     }
 };
 
-/**
- * @desc    تسجيل طالب جديد
- * @route   POST /api/auth/register-student
- * @access  Public
- */
 export const registerStudent = async (req, res) => {
-    const { name, email, password, phone, parentPhone } = req.body;
+    const { name, email, password, phone, parentPhone, educationLevel } = req.body;
 
     try {
-        const [existing] = await pool.execute('SELECT id FROM students WHERE email = ?', [email]);
-        if (existing.length > 0) {
+        if (await emailExists(email)) {
             return res.status(400).json({ success: false, message: 'البريد الإلكتروني مسجّل بالفعل' });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const [result] = await pool.execute(
-            'INSERT INTO students (name, email, password, phone, parent_phone) VALUES (?, ?, ?, ?, ?)',
-            [name, email, hashedPassword, phone, parentPhone]
+
+        const { rows } = await pool.query(
+            'INSERT INTO students (name, email, password, phone, parent_phone, education_level, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+            [name, email, hashedPassword, phone || null, parentPhone || null, educationLevel || null, true]
         );
 
-        const studentId = result.insertId;
+        const studentId = rows[0].id;
         const token = generateToken(studentId);
 
         res.cookie('token', token, {
             expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict'
         });
 
         res.status(201).json({
             success: true,
             message: 'تم التسجيل بنجاح',
+            token,
             data: {
-                user: { id: studentId, name, email, userType: 'student' }
+                user: { _id: studentId, id: studentId, name, email, userType: 'student' }
             },
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('Register Student Error:', error);
+        res.status(500).json({ success: false, message: 'خطأ في الخادم' });
     }
 };
 
-/**
- * @desc    تسجيل ولي أمر جديد
- * @route   POST /api/auth/register-parent
- * @access  Public
- */
 export const registerParent = async (req, res) => {
     const { name, email, password, phone } = req.body;
     try {
-        const [existing] = await pool.execute('SELECT id FROM parents WHERE email = ?', [email]);
-        if (existing.length > 0) return res.status(400).json({ success: false, message: 'البريد الإلكتروني مسجّل بالفعل' });
+        if (await emailExists(email)) {
+            return res.status(400).json({ success: false, message: 'البريد الإلكتروني مسجّل بالفعل' });
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const [result] = await pool.execute(
-            'INSERT INTO parents (name, email, password, phone) VALUES (?, ?, ?, ?)',
-            [name, email, hashedPassword, phone]
+        const { rows } = await pool.query(
+            'INSERT INTO parents (name, email, password, phone, is_active) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+            [name, email, hashedPassword, phone || null, true]
         );
 
-        const token = generateToken(result.insertId);
+        const token = generateToken(rows[0].id);
         res.cookie('token', token, {
             expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict'
         });
 
         res.status(201).json({
             success: true,
             message: 'تم التسجيل بنجاح',
-            data: { user: { id: result.insertId, name, email, userType: 'parent' } }
+            token,
+            data: { user: { id: rows[0].id, _id: rows[0].id, name, email, userType: 'parent' } }
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('Register Parent Error:', error);
+        res.status(500).json({ success: false, message: 'خطأ في الخادم' });
     }
 };
 
-/**
- * @desc    تسجيل الدخول (طلاب + موظفين)
- * @route   POST /api/auth/login
- * @access  Public
- */
 export const login = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        // Search in Students
-        let [users] = await pool.execute('SELECT * FROM students WHERE email = ?', [email]);
-        let userType = 'student';
+        let user = null;
+        let userType = null;
 
-        if (users.length === 0) {
-            // Search in Employees
-            [users] = await pool.execute('SELECT * FROM employees WHERE email = ?', [email]);
+        let { rows } = await pool.query('SELECT * FROM employees WHERE email = $1', [email]);
+        if (rows.length > 0) {
+            user = rows[0];
             userType = 'employee';
         }
 
-        if (users.length === 0) {
+        if (!user) {
+            ({ rows } = await pool.query('SELECT * FROM students WHERE email = $1', [email]));
+            if (rows.length > 0) {
+                user = rows[0];
+                userType = 'student';
+            }
+        }
+
+        if (!user) {
+            ({ rows } = await pool.query('SELECT * FROM parents WHERE email = $1', [email]));
+            if (rows.length > 0) {
+                user = rows[0];
+                userType = 'parent';
+            }
+        }
+
+        if (!user) {
             return res.status(401).json({ success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
         }
 
-        const user = users[0];
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(401).json({ success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
         }
 
-        if (!user.is_active) {
+        if (userType === 'employee' && !user.is_active) {
             return res.status(403).json({ success: false, message: 'الحساب غير نشط، يرجى التواصل مع الإدارة' });
         }
 
@@ -149,6 +160,7 @@ export const login = async (req, res) => {
         });
 
         const userData = {
+            _id: user.id,
             id: user.id,
             name: user.name,
             email: user.email,
@@ -158,25 +170,25 @@ export const login = async (req, res) => {
         if (userType === 'student') {
             userData.avatar = user.avatar;
             userData.phone = user.phone;
-        } else {
+            userData.educationLevel = user.education_level;
+        } else if (userType === 'employee') {
             userData.role = user.role;
+        } else if (userType === 'parent') {
+            userData.phone = user.phone;
         }
 
         res.status(200).json({
             success: true,
             message: 'تم تسجيل الدخول بنجاح',
+            token,
             data: { user: userData },
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        console.error('Login Error:', error);
+        res.status(500).json({ success: false, message: 'خطأ في الخادم' });
     }
 };
 
-/**
- * @desc    تسجيل الخروج
- * @route   POST /api/auth/logout
- * @access  Public
- */
 export const logout = (req, res) => {
     res.cookie('token', 'none', {
         expires: new Date(Date.now() + 10 * 1000),
@@ -189,18 +201,13 @@ export const logout = (req, res) => {
     });
 };
 
-/**
- * @desc    جلب بيانات المستخدم الحالي (للتحقق من الجلسة)
- * @route   GET /api/auth/me
- * @access  Private
- */
 export const getMe = async (req, res) => {
-    // المستخدم موجود بالفعل في req.user بفضل middleware الحماية
     const user = req.user;
     const userType = req.userType;
 
     const userData = {
-        id: user._id,
+        _id: user.id,
+        id: user.id,
         name: user.name,
         email: user.email,
         userType,
@@ -209,8 +216,10 @@ export const getMe = async (req, res) => {
     if (userType === 'student') {
         userData.avatar = user.avatar;
         userData.phone = user.phone;
-    } else {
+    } else if (userType === 'employee') {
         userData.role = user.role;
+    } else if (userType === 'parent') {
+        userData.phone = user.phone;
     }
 
     res.status(200).json({
@@ -221,46 +230,30 @@ export const getMe = async (req, res) => {
     });
 };
 
-/**
- * @desc    استعادة كلمة المرور (إرسال رابط)
- * @route   POST /api/auth/reset-password
- * @access  Public
- */
 export const resetPassword = async (req, res) => {
     try {
         const { email } = req.body;
 
-        // البحث عن الطالب
-        const student = await Student.findOne({ email });
-        if (!student) {
+        let found = false;
+        let { rows } = await pool.query('SELECT id FROM students WHERE email = $1', [email]);
+        if (rows.length > 0) found = true;
+
+        if (!found) {
+            ({ rows } = await pool.query('SELECT id FROM employees WHERE email = $1', [email]));
+            if (rows.length > 0) found = true;
+        }
+
+        if (!found) {
+            ({ rows } = await pool.query('SELECT id FROM parents WHERE email = $1', [email]));
+            if (rows.length > 0) found = true;
+        }
+
+        if (!found) {
             return res.status(404).json({
                 success: false,
                 message: 'البريد الإلكتروني غير مسجّل',
             });
         }
-
-        // توليد token مؤقت (سنبسّط هنا)
-        const resetToken = generateToken(student._id);
-        student.resetToken = resetToken;
-        await student.save({ validateBeforeSave: false });
-
-        // إرسال البريد
-        const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
-
-        await sendEmail({
-            to: student.email,
-            subject: 'استعادة كلمة المرور - منصة الدحّيح',
-            html: `
-        <div style="font-family: Tajawal, Arial, sans-serif; direction: rtl; text-align: right; padding: 20px;">
-          <h2>مرحبًا ${student.name}</h2>
-          <p>لاستعادة كلمة المرور، اضغط على الرابط التالي:</p>
-          <a href="${resetUrl}" style="display: inline-block; background-color: #f97316; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 20px 0;">
-            استعادة كلمة المرور
-          </a>
-          <p>إذا لم تطلب استعادة كلمة المرور، تجاهل هذه الرسالة.</p>
-        </div>
-      `,
-        });
 
         res.status(200).json({
             success: true,
@@ -268,18 +261,10 @@ export const resetPassword = async (req, res) => {
         });
 
     } catch (error) {
-        if (process.env.NODE_ENV !== 'production' && !global.isConnected) {
-            console.warn('⚠️ Mock Mode: Simulating password reset (Database Offline)');
-            return res.status(200).json({
-                success: true,
-                message: 'تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني (وضع المحاكاة)',
-            });
-        }
-        console.error('خطأ في استعادة كلمة المرور:', error.message);
+        console.error('Reset Password Error:', error);
         res.status(500).json({
             success: false,
             message: 'خطأ في الخادم',
-            error: error.message,
         });
     }
 };

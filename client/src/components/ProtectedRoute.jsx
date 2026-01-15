@@ -2,8 +2,8 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Loading from '../components/common/Loading';
 
-const ProtectedRoute = ({ children, requireStudent = false, requireEmployee = false }) => {
-    const { isAuthenticated, loading, isStudent, isEmployee } = useAuth();
+const ProtectedRoute = ({ children, requireStudent = false, requireEmployee = false, requireParent = false }) => {
+    const { isAuthenticated, loading, isStudent, isEmployee, isParent } = useAuth();
 
     if (loading) {
         return (
@@ -22,6 +22,10 @@ const ProtectedRoute = ({ children, requireStudent = false, requireEmployee = fa
     }
 
     if (requireEmployee && !isEmployee) {
+        return <Navigate to="/" replace />;
+    }
+
+    if (requireParent && !isParent) {
         return <Navigate to="/" replace />;
     }
 

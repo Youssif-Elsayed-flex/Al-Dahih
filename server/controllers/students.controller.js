@@ -1,4 +1,20 @@
-import pool from '../config/db.mysql.js';
+import pool from '../config/db.pg.js';
+
+// Helper to format student object
+const formatStudent = (s) => ({
+    _id: s.id,
+    id: s.id,
+    name: s.name,
+    email: s.email,
+    phone: s.phone,
+    parentPhone: s.parent_phone, // SQL: parent_phone
+    educationLevel: s.education_level, // SQL: education_level
+    birthDate: s.birth_date, // SQL: birth_date
+    avatar: s.avatar,
+    isActive: s.is_active,
+    createdAt: s.created_at,
+    updatedAt: s.updated_at
+});
 
 /**
  * @desc    الحصول على الملف الشخصي للطالب
@@ -7,9 +23,9 @@ import pool from '../config/db.mysql.js';
  */
 export const getMyProfile = async (req, res) => {
     try {
-        const [students] = await pool.execute('SELECT * FROM students WHERE id = ?', [req.user.id]);
+        const { rows: students } = await pool.query('SELECT * FROM students WHERE id = $1', [req.user.id]);
         if (students.length === 0) return res.status(404).json({ success: false, message: 'الطالب غير موجود' });
-        res.status(200).json({ success: true, data: students[0] });
+        res.status(200).json({ success: true, data: formatStudent(students[0]) });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -21,11 +37,12 @@ export const getMyProfile = async (req, res) => {
  * @access  Student
  */
 export const updateMyProfile = async (req, res) => {
-    const { name, phone, parent_phone, birth_date, education_level } = req.body;
+    // Frontend sends camelCase
+    const { name, phone, parentPhone, birthDate, educationLevel } = req.body;
     try {
-        await pool.execute(
-            'UPDATE students SET name = ?, phone = ?, parent_phone = ?, birth_date = ?, education_level = ? WHERE id = ?',
-            [name, phone, parent_phone, birth_date, education_level, req.user.id]
+        await pool.query(
+            'UPDATE students SET name = $1, phone = $2, parent_phone = $3, birth_date = $4, education_level = $5 WHERE id = $6',
+            [name, phone, parentPhone, birthDate, educationLevel, req.user.id]
         );
         res.status(200).json({ success: true, message: 'تم تحديث الملف الشخصي بنجاح' });
     } catch (error) {
@@ -40,8 +57,8 @@ export const updateMyProfile = async (req, res) => {
  */
 export const getAllStudents = async (req, res) => {
     try {
-        const [students] = await pool.execute('SELECT * FROM students ORDER BY created_at DESC');
-        res.status(200).json({ success: true, count: students.length, data: students });
+        const { rows: students } = await pool.query('SELECT * FROM students ORDER BY created_at DESC');
+        res.status(200).json({ success: true, count: students.length, data: students.map(formatStudent) });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -55,7 +72,7 @@ export const getAllStudents = async (req, res) => {
 export const toggleStudentStatus = async (req, res) => {
     const { isActive } = req.body;
     try {
-        await pool.execute('UPDATE students SET is_active = ? WHERE id = ?', [isActive, req.params.id]);
+        await pool.query('UPDATE students SET is_active = $1 WHERE id = $2', [isActive, req.params.id]);
         res.status(200).json({ success: true, message: 'تم تغيير حالة الحساب بنجاح' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -69,7 +86,7 @@ export const toggleStudentStatus = async (req, res) => {
  */
 export const deleteStudent = async (req, res) => {
     try {
-        await pool.execute('DELETE FROM students WHERE id = ?', [req.params.id]);
+        await pool.query('DELETE FROM students WHERE id = $1', [req.params.id]);
         res.status(200).json({ success: true, message: 'تم حذف الطالب بنجاح' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

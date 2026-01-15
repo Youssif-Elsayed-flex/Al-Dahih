@@ -8,12 +8,16 @@ import rateLimit from 'express-rate-limit';
 
 // Load env vars
 dotenv.config();
+console.log('ENV LOADED, JWT_SECRET:', process.env.JWT_SECRET ? 'Exists' : 'Missing');
 
 // Connect to MySQL
-import { connectMySQL } from './config/db.mysql.js';
-connectMySQL().then((isConnected) => {
+// Connect to PostgreSQL
+import { connectDB } from './config/db.pg.js';
+connectDB().then((isConnected) => {
     global.isConnected = isConnected;
-    // Note: seedAdmin will need to be refactored for SQL as well
+    if (isConnected) {
+        seedAdmin();
+    }
 });
 
 import { seedAdmin } from './utils/seedAdmin.js';

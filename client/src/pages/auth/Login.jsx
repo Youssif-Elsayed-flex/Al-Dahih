@@ -23,6 +23,8 @@ const Login = () => {
         if (result.success) {
             if (result.user.userType === 'employee') {
                 navigate('/dashboard');
+            } else if (result.user.userType === 'parent') {
+                navigate('/parent');
             } else {
                 navigate('/courses');
             }
